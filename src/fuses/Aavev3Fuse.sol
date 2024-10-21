@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 // Define the interface for Aave V3's LendingPool
 interface IAaveV3LendingPool {
     struct ReserveData {
         uint256 availableLiquidity;
-        // other fields omitted for brevity
     }
+    // other fields omitted for brevity
 
     function getReserveData(address asset) external view returns (ReserveData memory);
     function supply(address asset, uint256 amount, address onBehalfOf, uint16 referralCode) external;

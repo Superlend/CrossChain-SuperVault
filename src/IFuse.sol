@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 interface IFuse {
     // Define the function signature for getAssetsOf
     function getAssetsOf(uint256 id, address account) external view returns (uint256);
-    
+
     // You can add other function signatures that the Fuse contract should implement
     // function anotherFunction(uint256 param) external returns (bool);
 
