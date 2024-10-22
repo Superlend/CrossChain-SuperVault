@@ -21,14 +21,16 @@ contract AaveV3Fuse {
 
     IAaveV3LendingPool public lendingPool;
     address public asset;
+    address public poolAddressesProvider;
 
-    constructor(address _lendingPool, address _asset) {
+    constructor(address _lendingPool, address _asset, address _poolAddressesProvider) {
         lendingPool = IAaveV3LendingPool(_lendingPool);
         asset = _asset;
+        poolAddressesProvider = _poolAddressesProvider;
     }
 
     function getLiquidityOf() external view returns (uint256) {
-        IAaveV3LendingPool.ReserveData memory reserveData = lendingPool.getReserveData(asset);
+        IAaveV3LendingPool.ReserveData memory reserveData = lendingPool.getReserveData(poolAddressesProvider);
         return reserveData.availableLiquidity;
     }
 
