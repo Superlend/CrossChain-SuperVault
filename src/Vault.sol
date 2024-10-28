@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {console} from "forge-std/console.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
@@ -228,6 +229,7 @@ contract SuperVault is Ownable, ERC20, Pausable, ReentrancyGuard {
 
     function totalAssets() public view returns (uint256) {
         uint256 assets = ASSET.balanceOf(address(this));
+        console.log("assets in vault", assets);
         uint256 depositQueueLength = depositQueue.length;
         for (uint256 i; i < depositQueueLength; ++i) {
             assets += IFuse(fuseList[i].fuseAddress).getAssetsOf(address(this));
@@ -235,10 +237,14 @@ contract SuperVault is Ownable, ERC20, Pausable, ReentrancyGuard {
         return assets;
     }
 
-    function addFuse(uint256 fuseId, address fuseAddress, string memory fuseName) external onlyOwner {
+    function addFuse(uint256 fuseId, address fuseAddress, string memory fuseName, uint256 assetCap)
+        external
+        onlyOwner
+    {
         require(fuseList[fuseId].fuseAddress == address(0), "Fuse ID already exists");
         require(fuseAddress != address(0), "Invalid fuse address");
         fuseList[fuseId] = Fuse(fuseName, fuseAddress);
+        fuseCapFor[fuseId] = assetCap;
         emit FuseAdded(fuseId, fuseName, fuseAddress);
     }
 
@@ -362,6 +368,7 @@ contract SuperVault is Ownable, ERC20, Pausable, ReentrancyGuard {
         ERC20._mint(receiver, shares);
         _supplyToFuses(assets);
         lastTotalAssets += assets;
+        console.log("assets in vault after deposit", ASSET.balanceOf(address(this)));
         emit Deposit(msg.sender, receiver, assets, shares);
     }
 
@@ -377,20 +384,26 @@ contract SuperVault is Ownable, ERC20, Pausable, ReentrancyGuard {
     function _supplyToFuses(uint256 assets) internal {
         uint256 depositQueueLength = depositQueue.length;
         for (uint256 i; i < depositQueueLength; ++i) {
+            console.log("Attempting deposit with amount:", assets);
             uint256 fuseId = depositQueue[i];
             IFuse fuse = IFuse(fuseList[fuseId].fuseAddress);
-            uint256 assetsInPool = fuse.getAssetsOf(address(this));
+            uint256 assetsInVault = fuse.getAssetsOf(address(this));
+            console.log("assetsInVault", assetsInVault);
+            console.log("fuseCapFor[fuseId]", fuseCapFor[fuseId]);
 
-            if (assetsInPool < fuseCapFor[fuseId]) {
-                uint256 supplyAmt = fuseCapFor[fuseId] - assetsInPool;
+            if (assetsInVault < fuseCapFor[fuseId]) {
+                uint256 supplyAmt = fuseCapFor[fuseId] - assetsInVault;
                 if (assets < supplyAmt) supplyAmt = assets;
                 ASSET.forceApprove(address(fuse), supplyAmt);
 
                 try fuse.deposit(supplyAmt) {
                     assets -= supplyAmt;
+                    console.log("Deposit successful, remaining assets:", assets);
                 } catch {}
 
                 if (assets == 0) return;
+            } else {
+                console.log("Skipping deposit: assetsInVault >= fuseCap");
             }
         }
     }
