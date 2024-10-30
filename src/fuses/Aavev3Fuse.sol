@@ -45,23 +45,23 @@ contract AaveV3Fuse {
     }
 
     function withdraw(uint256 amount) external onlyVault {
-    // Get the aToken address
-    DataTypes.ReserveData memory reserveData = lendingPool.getReserveData(asset);
-    address aToken = reserveData.aTokenAddress;
+        // Get the aToken address
+        DataTypes.ReserveData memory reserveData = lendingPool.getReserveData(asset);
+        address aToken = reserveData.aTokenAddress;
 
-    IERC20(aToken).approve(address(this), type(uint256).max);
+        IERC20(aToken).approve(address(this), type(uint256).max);
 
-    // pull the aToken from the vault
-    IERC20(aToken).transferFrom(vault, address(this), amount);
-    
-    try lendingPool.withdraw(asset, amount, msg.sender) returns (uint256 withdrawnAmount) {
-        require(withdrawnAmount == amount, "Withdrawn amount mismatch");
+        // pull the aToken from the vault
+        IERC20(aToken).transferFrom(vault, address(this), amount);
+
+        try lendingPool.withdraw(asset, amount, msg.sender) returns (uint256 withdrawnAmount) {
+            require(withdrawnAmount == amount, "Withdrawn amount mismatch");
         } catch Error(string memory reason) {
             revert(reason);
         } catch {
             revert("Withdraw failed");
         }
-    }   
+    }
 
     function getAssetsOf(address account) external view returns (uint256) {
         DataTypes.ReserveData memory reserveData = (lendingPool).getReserveData(asset);

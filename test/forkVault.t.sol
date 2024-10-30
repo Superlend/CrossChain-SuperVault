@@ -54,13 +54,13 @@ contract VaultTest is Test {
         targets[0] = aTokenAddress;
 
         vault.addFuse(
-            0,                    // fuseId
-            address(aaveV3Fuse),  // fuseAddress
-            "AaveV3Fuse",        // fuseName
-            1000000000,          // assetCap
-            selectors,           // approval selectors
-            params,              // approval parameters
-            targets             // target contracts
+            0, // fuseId
+            address(aaveV3Fuse), // fuseAddress
+            "AaveV3Fuse", // fuseName
+            1000000000, // assetCap
+            selectors, // approval selectors
+            params, // approval parameters
+            targets // target contracts
         );
 
         // Verify approvals

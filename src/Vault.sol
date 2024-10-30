@@ -238,21 +238,25 @@ contract SuperVault is Ownable, ERC20, Pausable, ReentrancyGuard {
         return assets;
     }
 
-    function addFuse(uint256 fuseId, address fuseAddress, string memory fuseName, uint256 assetCap, bytes4[] memory selectors, bytes[] memory params, address[] memory targets)
-        external
-        onlyOwner
-    {
+    function addFuse(
+        uint256 fuseId,
+        address fuseAddress,
+        string memory fuseName,
+        uint256 assetCap,
+        bytes4[] memory selectors,
+        bytes[] memory params,
+        address[] memory targets
+    ) external onlyOwner {
         require(fuseList[fuseId].fuseAddress == address(0), "Fuse ID already exists");
         require(fuseAddress != address(0), "Invalid fuse address");
         fuseList[fuseId] = Fuse(fuseName, fuseAddress);
         fuseCapFor[fuseId] = assetCap;
         for (uint256 i; i < selectors.length; ++i) {
-
-            (bool success, ) = targets[i].call(
+            (bool success,) = targets[i].call(
                 abi.encodeWithSelector(
                     selectors[i],
-                    abi.decode(params[i], (address)),  // spender
-                    abi.decode(params[i], (uint256))   // amount
+                    abi.decode(params[i], (address)), // spender
+                    abi.decode(params[i], (uint256)) // amount
                 )
             );
             require(success, "Failed to execute selector");
