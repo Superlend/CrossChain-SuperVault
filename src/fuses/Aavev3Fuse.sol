@@ -33,22 +33,39 @@ contract AaveV3Fuse {
         return availableLiquidity;
     }
 
+    function getATokenAddress() external view returns (address) {
+        DataTypes.ReserveData memory reserveData = lendingPool.getReserveData(asset);
+        return reserveData.aTokenAddress;
+    }
+
     function deposit(uint256 amount) external onlyVault {
         IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
         IERC20(asset).approve(address(lendingPool), amount);
         lendingPool.supply(asset, amount, msg.sender, 0);
-        console.log("deposit has been made", amount);
     }
 
     function withdraw(uint256 amount) external onlyVault {
-        uint256 withdrawnAmount = lendingPool.withdraw(asset, amount, vault);
+    // Get the aToken address
+    DataTypes.ReserveData memory reserveData = lendingPool.getReserveData(asset);
+    address aToken = reserveData.aTokenAddress;
+
+    IERC20(aToken).approve(address(this), type(uint256).max);
+
+    // pull the aToken from the vault
+    IERC20(aToken).transferFrom(vault, address(this), amount);
+    
+    try lendingPool.withdraw(asset, amount, msg.sender) returns (uint256 withdrawnAmount) {
         require(withdrawnAmount == amount, "Withdrawn amount mismatch");
-    }
+        } catch Error(string memory reason) {
+            revert(reason);
+        } catch {
+            revert("Withdraw failed");
+        }
+    }   
 
     function getAssetsOf(address account) external view returns (uint256) {
         DataTypes.ReserveData memory reserveData = (lendingPool).getReserveData(asset);
         uint256 balanceOf = IERC20(reserveData.aTokenAddress).balanceOf(account);
-        console.log("balanceOf was called", balanceOf);
         return balanceOf;
     }
 }

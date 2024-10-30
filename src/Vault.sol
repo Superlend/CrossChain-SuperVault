@@ -17,7 +17,7 @@ contract SuperVault is Ownable, ERC20, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     uint256 public constant TIMELOCK_DURATION = 24 * 60 * 60;
-
+    // 3 days
     uint256 public constant TIMELOCK_DEADLINE = 3 * 24 * 60 * 60;
 
     uint256 internal constant WAD = 1e18;
@@ -55,6 +55,8 @@ contract SuperVault is Ownable, ERC20, Pausable, ReentrancyGuard {
     PendingFeeUpdate pendingFeeUpdate;
 
     event DepositQueueUpdated(uint256 fuseId);
+
+    event WithdrawQueueUpdated(uint256 fuseId);
 
     event FuseAdded(uint256 fuseId, string fuseName, address fuseAddress);
 
@@ -229,7 +231,6 @@ contract SuperVault is Ownable, ERC20, Pausable, ReentrancyGuard {
 
     function totalAssets() public view returns (uint256) {
         uint256 assets = ASSET.balanceOf(address(this));
-        console.log("assets in vault", assets);
         uint256 depositQueueLength = depositQueue.length;
         for (uint256 i; i < depositQueueLength; ++i) {
             assets += IFuse(fuseList[i].fuseAddress).getAssetsOf(address(this));
@@ -237,7 +238,7 @@ contract SuperVault is Ownable, ERC20, Pausable, ReentrancyGuard {
         return assets;
     }
 
-    function addFuse(uint256 fuseId, address fuseAddress, string memory fuseName, uint256 assetCap)
+    function addFuse(uint256 fuseId, address fuseAddress, string memory fuseName, uint256 assetCap, bytes4[] memory selectors, bytes[] memory params, address[] memory targets)
         external
         onlyOwner
     {
@@ -245,6 +246,17 @@ contract SuperVault is Ownable, ERC20, Pausable, ReentrancyGuard {
         require(fuseAddress != address(0), "Invalid fuse address");
         fuseList[fuseId] = Fuse(fuseName, fuseAddress);
         fuseCapFor[fuseId] = assetCap;
+        for (uint256 i; i < selectors.length; ++i) {
+
+            (bool success, ) = targets[i].call(
+                abi.encodeWithSelector(
+                    selectors[i],
+                    abi.decode(params[i], (address)),  // spender
+                    abi.decode(params[i], (uint256))   // amount
+                )
+            );
+            require(success, "Failed to execute selector");
+        }
         emit FuseAdded(fuseId, fuseName, fuseAddress);
     }
 
@@ -314,6 +326,15 @@ contract SuperVault is Ownable, ERC20, Pausable, ReentrancyGuard {
         emit DepositQueueUpdated(fuseId);
     }
 
+    function addToWithdrawQueue(uint256 fuseId) external onlyOwner {
+        require(fuseList[fuseId].fuseAddress != address(0), "Invalid fuseId");
+        for (uint256 i = 0; i < withdrawQueue.length; i++) {
+            require(withdrawQueue[i] != fuseId, "Fuse already in queue");
+        }
+        withdrawQueue.push(fuseId);
+        emit WithdrawQueueUpdated(fuseId);
+    }
+
     function removeFromDepositQueue(uint256 fuseId) external onlyOwner {
         _removeFromQueue(depositQueue, fuseId);
         emit DepositQueueUpdated(fuseId);
@@ -368,7 +389,6 @@ contract SuperVault is Ownable, ERC20, Pausable, ReentrancyGuard {
         ERC20._mint(receiver, shares);
         _supplyToFuses(assets);
         lastTotalAssets += assets;
-        console.log("assets in vault after deposit", ASSET.balanceOf(address(this)));
         emit Deposit(msg.sender, receiver, assets, shares);
     }
 
@@ -384,12 +404,9 @@ contract SuperVault is Ownable, ERC20, Pausable, ReentrancyGuard {
     function _supplyToFuses(uint256 assets) internal {
         uint256 depositQueueLength = depositQueue.length;
         for (uint256 i; i < depositQueueLength; ++i) {
-            console.log("Attempting deposit with amount:", assets);
             uint256 fuseId = depositQueue[i];
             IFuse fuse = IFuse(fuseList[fuseId].fuseAddress);
             uint256 assetsInVault = fuse.getAssetsOf(address(this));
-            console.log("assetsInVault", assetsInVault);
-            console.log("fuseCapFor[fuseId]", fuseCapFor[fuseId]);
 
             if (assetsInVault < fuseCapFor[fuseId]) {
                 uint256 supplyAmt = fuseCapFor[fuseId] - assetsInVault;
@@ -398,12 +415,9 @@ contract SuperVault is Ownable, ERC20, Pausable, ReentrancyGuard {
 
                 try fuse.deposit(supplyAmt) {
                     assets -= supplyAmt;
-                    console.log("Deposit successful, remaining assets:", assets);
                 } catch {}
 
                 if (assets == 0) return;
-            } else {
-                console.log("Skipping deposit: assetsInVault >= fuseCap");
             }
         }
     }

@@ -10,6 +10,6 @@ runs = 256
 mainnet = { key = "YOUR_ETHERSCAN_API_KEY" }
 
 [rpc_endpoints]
-mainnet = "https://node.mainnet.etherlink.com"
+mainnet = "https://ethereum-sepolia-rpc.publicnode.com"
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

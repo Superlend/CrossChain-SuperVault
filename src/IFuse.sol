@@ -11,4 +11,5 @@ interface IFuse {
     function deposit(uint256 amount) external;
     function withdraw(uint256 amount) external;
     function getLiquidityOf() external view returns (uint256);
+    function getATokenAddress() external view returns (address);
 }
