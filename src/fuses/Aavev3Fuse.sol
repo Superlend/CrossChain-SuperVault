@@ -42,6 +42,7 @@ contract AaveV3Fuse {
         IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
         IERC20(asset).approve(address(lendingPool), amount);
         lendingPool.supply(asset, amount, msg.sender, 0);
+        console.log("aave deposit called", amount);
     }
 
     function withdraw(uint256 amount) external onlyVault {
@@ -56,6 +57,7 @@ contract AaveV3Fuse {
 
         try lendingPool.withdraw(asset, amount, msg.sender) returns (uint256 withdrawnAmount) {
             require(withdrawnAmount == amount, "Withdrawn amount mismatch");
+            console.log("aave withdraw called", amount);
         } catch Error(string memory reason) {
             revert(reason);
         } catch {

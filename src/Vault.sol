@@ -17,25 +17,17 @@ contract SuperVault is Ownable, ERC20, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     uint256 public constant TIMELOCK_DURATION = 24 * 60 * 60;
-    // 3 days
     uint256 public constant TIMELOCK_DEADLINE = 3 * 24 * 60 * 60;
-
     uint256 internal constant WAD = 1e18;
 
     uint8 internal immutable DECIMALS;
-
     IERC20 internal immutable ASSET;
 
     uint256 public fee;
-
     uint256 public lastTotalAssets;
-
     uint256 public superPoolCap;
-
     address public feeRecipient;
-
     uint256[] public depositQueue;
-
     uint256[] public withdrawQueue;
 
     struct Fuse {
@@ -43,81 +35,56 @@ contract SuperVault is Ownable, ERC20, Pausable, ReentrancyGuard {
         address fuseAddress;
     }
 
-    mapping(uint256 fuseId => Fuse) public fuseList;
-
-    mapping(uint256 fuseId => uint256 cap) public fuseCapFor;
-
     struct PendingFeeUpdate {
         uint256 fee;
         uint256 validAfter;
     }
 
+    mapping(uint256 fuseId => Fuse) public fuseList;
+    mapping(uint256 fuseId => uint256 cap) public fuseCapFor;
+
     PendingFeeUpdate pendingFeeUpdate;
 
     event DepositQueueUpdated(uint256 fuseId);
-
     event WithdrawQueueUpdated(uint256 fuseId);
-
     event FuseAdded(uint256 fuseId, string fuseName, address fuseAddress);
-
     event FuseRemoved(uint256 fuseId);
-
     event Deposit(address indexed caller, address indexed owner, uint256 assets, uint256 shares);
-
     event Withdraw(
         address indexed caller, address indexed receiver, address indexed owner, uint256 assets, uint256 shares
     );
-
     event FuseCapSet(uint256 fuseId, uint256 cap);
-
     event SuperVaultFeeUpdateRequested(uint256 fee);
-
     event SuperVaultFeeUpdated(uint256 fee);
-
     event SuperVaultFeeUpdateRejected(uint256 fee);
-
     event SuperVaultFeeRecipientUpdated(address feeRecipient);
 
     error SuperVault_FeeTooHigh();
-
     error SuperVault_ZeroShareDeposit(address supervault, uint256 assets);
-
     error SuperVault_NotEnoughLiquidity(address superVault);
-
     error SuperVault_ZeroAssetMint(address supervault, uint256 shares);
-
     error SuperVault_ZeroShareWithdraw(address supervault, uint256 assets);
-
     error SuperVault_ZeroAssetRedeem(address superpool, uint256 shares);
-
     error SuperFuse_FuseNotInQueue(uint256 fuseId);
-
     error SuperVault_ZeroPoolCap(uint256 fuseId);
-
     error SuperFuse_QueueLengthMismatch(address superFuse);
-
     error SuperVault_TimelockPending(uint256 currentTimestamp, uint256 validAfter);
-
     error SuperVault_TimelockExpired(uint256 currentTimestamp, uint256 validAfter);
-
     error SuperVault_ZeroFeeRecipient();
-
     error SuperVault_NoFeeUpdate();
-
     error SuperVault_ReorderQueueLength();
-
     error SuperVault_InvalidQueueReorder();
-
     error SuperVault_SuperVaultCapReached();
 
     constructor(
         address asset_,
         address feeRecipient_,
+        address owner_,
         uint256 fee_,
         uint256 superPoolCap_,
         string memory name_,
         string memory symbol_
-    ) Ownable(msg.sender) ERC20(name_, symbol_) {
+    ) Ownable(owner_) ERC20(name_, symbol_) {
         ASSET = IERC20(asset_);
         DECIMALS = _tryGetAssetDecimals(ASSET);
         superPoolCap = superPoolCap_;
@@ -252,13 +219,8 @@ contract SuperVault is Ownable, ERC20, Pausable, ReentrancyGuard {
         fuseList[fuseId] = Fuse(fuseName, fuseAddress);
         fuseCapFor[fuseId] = assetCap;
         for (uint256 i; i < selectors.length; ++i) {
-            (bool success,) = targets[i].call(
-                abi.encodeWithSelector(
-                    selectors[i],
-                    abi.decode(params[i], (address)), // spender
-                    abi.decode(params[i], (uint256)) // amount
-                )
-            );
+            (address spender, uint256 amount) = abi.decode(params[i], (address, uint256));
+            (bool success,) = targets[i].call(abi.encodeWithSelector(selectors[i], spender, amount));
             require(success, "Failed to execute selector");
         }
         emit FuseAdded(fuseId, fuseName, fuseAddress);
@@ -353,6 +315,7 @@ contract SuperVault is Ownable, ERC20, Pausable, ReentrancyGuard {
         external
         onlyOwner
     {
+        console.log("Reallocate started");
         uint256 withdrawsLength = withdraws.length;
         for (uint256 i; i < withdrawsLength; ++i) {
             if (fuseCapFor[withdraws[i].fuseId] == 0) revert SuperFuse_FuseNotInQueue(withdraws[i].fuseId);
@@ -370,6 +333,7 @@ contract SuperVault is Ownable, ERC20, Pausable, ReentrancyGuard {
                 fuse.deposit(deposits[i].assets);
             }
         }
+        console.log("Reallocate done");
     }
 
     function accrue() public {
@@ -435,8 +399,11 @@ contract SuperVault is Ownable, ERC20, Pausable, ReentrancyGuard {
             uint256 assetsInPool = fuse.getAssetsOf(address(this));
             if (assetsInPool < withdrawAmt) withdrawAmt = assetsInPool;
             uint256 poolLiquidity = fuse.getLiquidityOf();
+            console.log("poolLiquidity", poolLiquidity);
+            console.log("withdrawAmt", withdrawAmt);
             if (poolLiquidity < withdrawAmt) withdrawAmt = poolLiquidity;
             if (withdrawAmt > 0) {
+                console.log("withdrawing", withdrawAmt, "from", fuseList[fuseId].name);
                 try fuse.withdraw(withdrawAmt) {
                     assets -= withdrawAmt;
                 } catch {}
