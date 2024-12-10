@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@stargatefinance/stg-evm-v2": "^1.2.6"
+  }
+}

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { IStargate } from "@stargatefinance/stg-evm-v2/src/interfaces/IStargate.sol";
 import {console} from "forge-std/console.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -44,7 +45,8 @@ contract AaveV3CrossChainFuse {
         IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
         IERC20(asset).approve(address(stargate), amount);
         (uint256 valueToSend, SendParam memory sendParam, MessagingFee memory messagingFee) = prepareTakeTaxiAndAMMSwap(address(stargate), 102, amount, address(lendingPool), "");
-        lendingPool.supply(asset, amount, msg.sender, 0);
+        IStargate stargate = IStargate(stargate);
+        IStargate(stargate).sendToken{ value: valueToSend }(sendParam, messagingFee, msg.sender);
         console.log("aave deposit called", amount);
     }
 
