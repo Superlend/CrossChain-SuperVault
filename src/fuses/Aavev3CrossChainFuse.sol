@@ -2,6 +2,8 @@
 pragma solidity ^0.8.24;
 
 import { IStargate } from "@stargatefinance/stg-evm-v2/src/interfaces/IStargate.sol";
+import { MessagingFee, OFTReceipt, SendParam } from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/interfaces/IOFT.sol";
+import { OptionsBuilder } from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/libs/OptionsBuilder.sol";
 import {console} from "forge-std/console.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -16,13 +18,15 @@ contract AaveV3CrossChainFuse {
     address public poolAddressesProvider;
     address public vault;
     address public stargate;
+    address public composer;
 
-    constructor(address _lendingPool, address _asset, address _poolAddressesProvider, address _vault, address _stargate) {
+    constructor(address _lendingPool, address _asset, address _poolAddressesProvider, address _vault, address _stargate, address _composer) {
         lendingPool = IPool(_lendingPool);
         asset = _asset;
         poolAddressesProvider = _poolAddressesProvider;
         vault = _vault;
         stargate = _stargate;
+        composer = _composer;
     }
 
     modifier onlyVault() {
@@ -44,8 +48,7 @@ contract AaveV3CrossChainFuse {
     function deposit(uint256 amount) external onlyVault {
         IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
         IERC20(asset).approve(address(stargate), amount);
-        (uint256 valueToSend, SendParam memory sendParam, MessagingFee memory messagingFee) = prepareTakeTaxiAndAMMSwap(address(stargate), 102, amount, address(lendingPool), "");
-        IStargate stargate = IStargate(stargate);
+        (uint256 valueToSend, SendParam memory sendParam, MessagingFee memory messagingFee) = prepareTakeTaxiAndAMMSwap(address(stargate), 102, amount, address(composer), "");
         IStargate(stargate).sendToken{ value: valueToSend }(sendParam, messagingFee, msg.sender);
         console.log("aave deposit called", amount);
     }
@@ -70,21 +73,15 @@ contract AaveV3CrossChainFuse {
         }
     }
 
-    function getAssetsOf(address account) external view returns (uint256) {
-        DataTypes.ReserveData memory reserveData = (lendingPool).getReserveData(asset);
-        uint256 balanceOf = IERC20(reserveData.aTokenAddress).balanceOf(account);
-        return balanceOf;
-    }
-
     function prepareTakeTaxiAndAMMSwap(
         address _stargate,
         uint32 _dstEid,
         uint256 _amount,
         address _composer,
         bytes memory _composeMsg
-    ) external view returns (uint256 valueToSend, SendParam memory sendParam, MessagingFee memory messagingFee) {
-        bytes memory extraOptions = _composeMsg.length > 0
-            ? OptionsBuilder.newOptions().addExecutorLzComposeOption(0, 200_000, 0) // compose gas limit
+    ) internal view returns (uint256 valueToSend, SendParam memory sendParam, MessagingFee memory messagingFee) {
+        bytes memory extraOptions = _composeMsg.length > 0 
+            ? bytes("")
             : bytes("");
 
         sendParam = SendParam({
@@ -97,17 +94,21 @@ contract AaveV3CrossChainFuse {
             oftCmd: ""
         });
 
-        IStargate stargate = IStargate(_stargate);
-
-        (, , OFTReceipt memory receipt) = stargate.quoteOFT(sendParam);
+        (, , OFTReceipt memory receipt) = IStargate(_stargate).quoteOFT(sendParam);
         sendParam.minAmountLD = receipt.amountReceivedLD;
 
-        messagingFee = stargate.quoteSend(sendParam, false);
+        messagingFee = IStargate(_stargate).quoteSend(sendParam, false);
         valueToSend = messagingFee.nativeFee;
 
-        if (stargate.token() == address(0x0)) {
+        if (IStargate(_stargate).token() == address(0x0)) {
             valueToSend += sendParam.amountLD;
         }
+    }
+
+    function getAssetsOf(address account) external view returns (uint256) {
+        DataTypes.ReserveData memory reserveData = (lendingPool).getReserveData(asset);
+        uint256 balanceOf = IERC20(reserveData.aTokenAddress).balanceOf(account);
+        return balanceOf;
     }
 
     function addressToBytes32(address _addr) internal pure returns (bytes32) {

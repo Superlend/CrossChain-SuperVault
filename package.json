@@ -1,5 +1,7 @@
 {
   "dependencies": {
-    "@stargatefinance/stg-evm-v2": "^1.2.6"
+    "@layerzerolabs/lz-evm-oapp-v2": "^3.0.25",
+    "@stargatefinance/stg-evm-v2": "^1.2.6",
+    "solidity-bytes-utils": "^0.8.2"
   }
 }

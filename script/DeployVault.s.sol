@@ -8,14 +8,21 @@ import {IPool} from "@aave/contracts/interfaces/IPool.sol";
 
 import {SuperVault} from "../src/Vault.sol";
 import {console} from "forge-std/console.sol";
+import {Script} from "forge-std/Script.sol";
 
-contract DeployVault {
+contract DeployVault is Script {
     address public owner = 0x469D7Fd0d97Bb8603B89228D79c7F037B2833859;
     address public feeRecipient = 0x469D7Fd0d97Bb8603B89228D79c7F037B2833859;
     address constant USDC = 0x796Ea11Fa2dD751eD01b53C372fFDB4AAa8f00F9;
     address constant AAVE_ADDRESSES_PROVIDER = 0x5ccF60c7E10547c5389E9cBFf543E5D0Db9F4feC;
     
     function run() external {
+        vm.createSelectFork("etherlink");
+
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+
+        vm.startBroadcast(deployerPrivateKey);
+
         IPoolAddressesProvider addressesProvider = IPoolAddressesProvider(AAVE_ADDRESSES_PROVIDER);
         IPool lendingPool = IPool(addressesProvider.getPool());
 
@@ -23,5 +30,7 @@ contract DeployVault {
         AaveV3Fuse aaveV3Fuse = new AaveV3Fuse(address(lendingPool), USDC, address(addressesProvider), address(vault));
         console.log("Vault deployed at:", address(vault));
         console.log("AaveV3Fuse deployed at:", address(aaveV3Fuse));
+
+        vm.stopBroadcast();
     }
 }

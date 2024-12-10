@@ -2,3 +2,5 @@
    forge-std/=lib/forge-std/src/
    @aave/=lib/aave-v3-core/
    @stargatefinance/stg-evm-v2/=node_modules/@stargatefinance/stg-evm-v2/
+   @layerzerolabs/=node_modules/@layerzerolabs/
+   solidity-bytes-utils/=node_modules/solidity-bytes-utils/
