@@ -15,7 +15,7 @@ contract DeployVault is Script {
     address public feeRecipient = 0x469D7Fd0d97Bb8603B89228D79c7F037B2833859;
     address constant USDC = 0x796Ea11Fa2dD751eD01b53C372fFDB4AAa8f00F9;
     address constant AAVE_ADDRESSES_PROVIDER = 0x5ccF60c7E10547c5389E9cBFf543E5D0Db9F4feC;
-    
+
     function run() external {
         vm.createSelectFork("etherlink");
 
