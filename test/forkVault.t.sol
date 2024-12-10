@@ -24,8 +24,6 @@ contract VaultTest is Test {
     address constant AAVE_ADDRESSES_PROVIDER = 0x2f39d218133AFaB8F2B819B1066c7E434Ad94E9e;
     address constant COMET = 0xc3d688B66703497DAA19211EEdff47f25384cdc3;
     address constant COMET_EXT = 0x285617313887d43256F852cAE0Ee4de4b68D45B0;
-    // address constant COMET = 0xc3d688B66703497DAA19211EEdff47f25384cdc3;
-    // address constant COMET_EXT = 0x285617313887d43256F852cAE0Ee4de4b68D45B0;
 
     IPool public lendingPool;
     IERC20 public usdcToken;
@@ -33,10 +31,7 @@ contract VaultTest is Test {
     uint256 mainnetFork;
 
     function setUp() public {
-        // Create a fork of mainnet
-        // 21100000
         mainnetFork = vm.createFork("https://eth-mainnet.public.blastapi.io");
-        // fork at particular block
 
         vm.selectFork(mainnetFork);
 
@@ -105,13 +100,13 @@ contract VaultTest is Test {
         vault.addToWithdrawQueue(1);
         vm.stopPrank();
         // Fund our test user with USDC
-        deal(USDC, user1, 3000 * 10 ** 6); // 3000 USDC
+        deal(USDC, user1, 3000 * 10 ** 6);
     }
 
     function test_deposit() public {
         vm.startPrank(user1);
 
-        uint256 depositAmount = 1500 * 10 ** 6; // 100 USDC
+        uint256 depositAmount = 1500 * 10 ** 6;
         usdcToken.approve(address(vault), depositAmount);
 
         uint256 initialBalance = usdcToken.balanceOf(user1);
@@ -166,6 +161,4 @@ contract VaultTest is Test {
 
         vm.stopPrank();
     }
-
-    // Add more test functions for other scenarios
 }
