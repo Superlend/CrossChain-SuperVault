@@ -55,8 +55,9 @@ contract AaveV3CrossChainFuse {
     function deposit(uint256 amount) external onlyVault {
         IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
         IERC20(asset).approve(address(stargate), amount);
+        bytes memory _composeMsg = abi.encode("deposit", amount, "AaveV3");
         (uint256 valueToSend, SendParam memory sendParam, MessagingFee memory messagingFee) =
-            prepareTakeTaxiAndAMMSwap(address(stargate), 102, amount, address(composer), "");
+            prepareTakeTaxiAndSpokeCall(address(stargate), 102, amount, address(composer), _composeMsg);
         IStargate(stargate).sendToken{value: valueToSend}(sendParam, messagingFee, msg.sender);
         console.log("aave deposit called", amount);
     }
@@ -81,7 +82,7 @@ contract AaveV3CrossChainFuse {
         }
     }
 
-    function prepareTakeTaxiAndAMMSwap(
+    function prepareTakeTaxiAndSpokeCall(
         address _stargate,
         uint32 _dstEid,
         uint256 _amount,
