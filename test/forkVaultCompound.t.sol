@@ -39,7 +39,8 @@ contract VaultTest is Test {
         // Deploy our contracts
         vault = new SuperVault(USDC, address(feeRecipient), owner, 0, 1000000000, "SuperLendUSDC", "SLUSDC");
         // Add CompoundV3Fuse
-        compoundV3Fuse = new CompoundV3Fuse(address(COMET), USDC, address(COMET_EXT), address(vault));
+        compoundV3Fuse =
+            new CompoundV3Fuse(address(COMET), USDC, address(COMET_EXT), address(vault), address(0x123), address(0x456));
 
         bytes4[] memory selectors = new bytes4[](1);
         bytes[] memory params = new bytes[](1);
@@ -63,6 +64,8 @@ contract VaultTest is Test {
             0, // fuseId
             address(compoundV3Fuse), // fuseAddress
             "CompoundV3Fuse", // fuseName
+            1, // sourceChainId
+            1, // lzEid
             1000000000, // assetCap
             selectors, // approval selectors
             params, // approval parameters

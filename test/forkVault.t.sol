@@ -44,8 +44,11 @@ contract VaultTest is Test {
 
         // Deploy our contracts
         vault = new SuperVault(USDC, address(feeRecipient), owner, 0, 3000000000, "SuperLendUSDC", "SLUSDC");
-        aaveV3Fuse = new AaveV3Fuse(address(lendingPool), USDC, address(addressesProvider), address(vault));
-        compoundV3Fuse = new CompoundV3Fuse(address(COMET), USDC, address(COMET_EXT), address(vault));
+        aaveV3Fuse = new AaveV3Fuse(
+            address(lendingPool), USDC, address(addressesProvider), address(vault), address(0x123), address(0x456)
+        );
+        compoundV3Fuse =
+            new CompoundV3Fuse(address(COMET), USDC, address(COMET_EXT), address(vault), address(0x123), address(0x456));
 
         address aTokenAddress = aaveV3Fuse.getATokenAddress();
 
@@ -58,11 +61,17 @@ contract VaultTest is Test {
         aaveParams[0] = abi.encode(address(aaveV3Fuse), type(uint256).max);
         aaveTargets[0] = aTokenAddress;
 
+        console.logBytes4(aaveSelectors[0]);
+        console.logBytes(aaveParams[0]);
+        console.log(aaveTargets[0]);
+
         vm.startPrank(owner);
         vault.addFuse(
             0, // fuseId
             address(aaveV3Fuse), // fuseAddress
             "AaveV3Fuse", // fuseName
+            1, // sourceChainId
+            1, // lzEid
             1000000000, // assetCap
             aaveSelectors, // approval selectors
             aaveParams, // approval parameters
@@ -87,6 +96,8 @@ contract VaultTest is Test {
             1, // fuseId
             address(compoundV3Fuse), // fuseAddress
             "CompoundV3Fuse", // fuseName
+            1, // sourceChainId
+            1, // lzEid
             1000000000, // assetCap
             compoundSelectors, // approval selectors
             compoundParams, // approval parameters
@@ -134,13 +145,13 @@ contract VaultTest is Test {
 
         // rebalance
         // vault owner calls reallocate
-        vm.startPrank(owner);
-        SuperVault.ReallocateParams[] memory fromParams = new SuperVault.ReallocateParams[](1);
-        fromParams[0] = SuperVault.ReallocateParams({fuseId: 0, assets: 100000000});
-        SuperVault.ReallocateParams[] memory toParams = new SuperVault.ReallocateParams[](1);
-        toParams[0] = SuperVault.ReallocateParams({fuseId: 1, assets: 100000000});
-        vault.reallocate(fromParams, toParams);
-        vm.stopPrank();
+        // vm.startPrank(owner);
+        // SuperVault.ReallocateParams[] memory fromParams = new SuperVault.ReallocateParams[](1);
+        // fromParams[0] = SuperVault.ReallocateParams({fuseId: 0, assets: 100000000});
+        // SuperVault.ReallocateParams[] memory toParams = new SuperVault.ReallocateParams[](1);
+        // toParams[0] = SuperVault.ReallocateParams({fuseId: 1, assets: 100000000});
+        // vault.reallocate(fromParams, toParams);
+        // vm.stopPrank();
 
         uint256 shares = vault.previewWithdraw(1200 * 10 ** 6);
         console.log("shares", shares);

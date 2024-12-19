@@ -33,12 +33,15 @@ contract SuperVault is Ownable, ERC20, Pausable, ReentrancyGuard {
     struct Fuse {
         string name;
         address fuseAddress;
+        uint32 sourceChainId;
+        uint32 lzEid;
     }
 
     struct PendingFeeUpdate {
         uint256 fee;
         uint256 validAfter;
     }
+    //
 
     mapping(uint256 fuseId => Fuse) public fuseList;
     mapping(uint256 fuseId => uint256 cap) public fuseCapFor;
@@ -200,7 +203,7 @@ contract SuperVault is Ownable, ERC20, Pausable, ReentrancyGuard {
         uint256 assets = ASSET.balanceOf(address(this));
         uint256 depositQueueLength = depositQueue.length;
         for (uint256 i; i < depositQueueLength; ++i) {
-            assets += IFuse(fuseList[i].fuseAddress).getAssetsOf(address(this));
+            assets += IFuse(fuseList[i].fuseAddress).getAssetsOf(address(fuseList[i].fuseAddress));
         }
         return assets;
     }
@@ -209,6 +212,8 @@ contract SuperVault is Ownable, ERC20, Pausable, ReentrancyGuard {
         uint256 fuseId,
         address fuseAddress,
         string memory fuseName,
+        uint32 sourceChainId,
+        uint32 lzEid,
         uint256 assetCap,
         bytes4[] memory selectors,
         bytes[] memory params,
@@ -216,7 +221,7 @@ contract SuperVault is Ownable, ERC20, Pausable, ReentrancyGuard {
     ) external onlyOwner {
         require(fuseList[fuseId].fuseAddress == address(0), "Fuse ID already exists");
         require(fuseAddress != address(0), "Invalid fuse address");
-        fuseList[fuseId] = Fuse(fuseName, fuseAddress);
+        fuseList[fuseId] = Fuse(fuseName, fuseAddress, sourceChainId, lzEid);
         fuseCapFor[fuseId] = assetCap;
         for (uint256 i; i < selectors.length; ++i) {
             (address spender, uint256 amount) = abi.decode(params[i], (address, uint256));
@@ -327,7 +332,7 @@ contract SuperVault is Ownable, ERC20, Pausable, ReentrancyGuard {
             uint256 poolCap = fuseCapFor[deposits[i].fuseId];
             if (poolCap == 0) revert SuperFuse_FuseNotInQueue(deposits[i].fuseId);
             IFuse fuse = IFuse(fuseList[deposits[i].fuseId].fuseAddress);
-            uint256 assetsInPool = fuse.getAssetsOf(address(this));
+            uint256 assetsInPool = fuse.getAssetsOf(address(fuse));
             if (assetsInPool + deposits[i].assets < poolCap) {
                 ASSET.approve(address(fuse), deposits[i].assets);
                 fuse.deposit(deposits[i].assets);
@@ -374,7 +379,7 @@ contract SuperVault is Ownable, ERC20, Pausable, ReentrancyGuard {
         for (uint256 i; i < depositQueueLength; ++i) {
             uint256 fuseId = depositQueue[i];
             IFuse fuse = IFuse(fuseList[fuseId].fuseAddress);
-            uint256 assetsInVault = fuse.getAssetsOf(address(this));
+            uint256 assetsInVault = fuse.getAssetsOf(address(fuse));
 
             if (assetsInVault < fuseCapFor[fuseId]) {
                 uint256 supplyAmt = fuseCapFor[fuseId] - assetsInVault;
@@ -396,7 +401,7 @@ contract SuperVault is Ownable, ERC20, Pausable, ReentrancyGuard {
             uint256 fuseId = withdrawQueue[i];
             IFuse fuse = IFuse(fuseList[fuseId].fuseAddress);
             uint256 withdrawAmt = assets;
-            uint256 assetsInPool = fuse.getAssetsOf(address(this));
+            uint256 assetsInPool = fuse.getAssetsOf(address(fuse));
             if (assetsInPool < withdrawAmt) withdrawAmt = assetsInPool;
             uint256 poolLiquidity = fuse.getLiquidityOf();
             console.log("poolLiquidity", poolLiquidity);

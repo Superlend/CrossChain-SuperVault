@@ -10,8 +10,10 @@ runs = 256
 [rpc_endpoints]
 mainnet = "https://eth-mainnet.public.blastapi.io"
 etherlink = "https://node.mainnet.etherlink.com"
+etherlink_testnet = "https://node.ghostnet.etherlink.com"
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
 
 [etherscan]
 etherlink = { key = "NO_KEY", chain = 42793, url = "https://explorer.etherlink.com/api", browser = "https://explorer.etherlink.com" }
+etherlink_testnet = { key = "NO_KEY", chain = 128123, url = "https://testnet.explorer.etherlink.com/api", browser = "https://testnet.explorer.etherlink.com" }
