@@ -34,7 +34,9 @@ contract CompoundV3Fuse is ILayerZeroComposer {
     address public immutable stargate;
     address public immutable endpoint;
 
-    event ReceivedOnDestination(address token);
+    event ComposeAcknowledged(
+        address indexed _from, bytes32 indexed _guid, bytes _message, address _executor, bytes _extraData
+    );
 
     constructor(
         address _comet,
@@ -97,7 +99,7 @@ contract CompoundV3Fuse is ILayerZeroComposer {
             comet.supplyTo(address(this), asset, _amount);
         }
 
-        emit ReceivedOnDestination(asset);
+        emit ComposeAcknowledged(_from, _guid, _message, _executor, _extraData);
     }
 
     function prepareTakeTaxiAndSpokeCall(

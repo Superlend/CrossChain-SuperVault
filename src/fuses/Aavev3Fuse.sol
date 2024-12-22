@@ -22,7 +22,9 @@ contract AaveV3Fuse is ILayerZeroComposer {
     address public immutable endpoint;
     address public immutable stargate;
 
-    event ReceivedOnDestination(address token);
+    event ComposeAcknowledged(
+        address indexed _from, bytes32 indexed _guid, bytes _message, address _executor, bytes _extraData
+    );
 
     constructor(
         address _lendingPool,
@@ -120,7 +122,7 @@ contract AaveV3Fuse is ILayerZeroComposer {
             lendingPool.supply(asset, _amount, msg.sender, 0);
         }
 
-        emit ReceivedOnDestination(asset);
+        emit ComposeAcknowledged(_from, _guid, _message, _executor, _extraData);
     }
 
     function prepareTakeTaxiAndSpokeCall(

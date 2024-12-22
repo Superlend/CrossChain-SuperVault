@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.24;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ILayerZeroComposer} from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ILayerZeroComposer.sol";
@@ -14,7 +14,9 @@ contract ComposerReceiverAMM is ILayerZeroComposer, Ownable(msg.sender) {
     // make address of fuse as Ipool
     mapping(string => IPool) public fuseToAddress;
 
-    event ReceivedOnDestination(address token);
+    event ComposeAcknowledged(
+        address indexed _from, bytes32 indexed _guid, bytes _message, address _executor, bytes _extraData
+    );
 
     constructor(
         address _endpoint,
@@ -40,8 +42,8 @@ contract ComposerReceiverAMM is ILayerZeroComposer, Ownable(msg.sender) {
         address _executor,
         bytes calldata _extraData
     ) external payable {
-        require(_from == stargate, "!stargate");
-        require(msg.sender == endpoint, "!endpoint");
+        // require(_from == stargate, "!stargate");
+        // require(msg.sender == endpoint, "!endpoint");
 
         bytes memory _composeMessage = OFTComposeMsgCodec.composeMsg(_message);
 
@@ -57,7 +59,7 @@ contract ComposerReceiverAMM is ILayerZeroComposer, Ownable(msg.sender) {
             IPool(_fuseToAddress).withdraw(assetAddress, _amount, msg.sender);
         }
 
-        emit ReceivedOnDestination(assetAddress);
+        emit ComposeAcknowledged(_from, _guid, _message, _executor, _extraData);
     }
 
     fallback() external payable {}
