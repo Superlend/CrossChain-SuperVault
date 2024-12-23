@@ -32,8 +32,7 @@ contract lz_receive is ILayerZeroComposer {
         uint256 amountLD = OFTComposeMsgCodec.amountLD(_message);
         bytes memory _composeMessage = OFTComposeMsgCodec.composeMsg(_message);
 
-        (address _tokenReceiver, uint256 _amount, address _assetOnDestination) =
-            abi.decode(_composeMessage, (address, uint256, address));
+        (address _tokenReceiver, address _assetOnDestination) = abi.decode(_composeMessage, (address, address));
 
         bool success = IERC20(_assetOnDestination).transfer(address(_tokenReceiver), amountLD);
         if (!success) {

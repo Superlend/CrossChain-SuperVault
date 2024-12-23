@@ -21,6 +21,14 @@ contract AaveV3Fuse is ILayerZeroComposer {
     address public vault;
     address public immutable endpoint;
     address public immutable stargate;
+    address public immutable owner;
+
+    struct protocolInfo {
+        uint32 dstEid;
+        address composer;
+    }
+
+    mapping(string => protocolInfo) public protocolToDstEidAndComposer;
 
     event ComposeAcknowledged(
         address indexed _from, bytes32 indexed _guid, bytes _message, address _executor, bytes _extraData
@@ -32,7 +40,8 @@ contract AaveV3Fuse is ILayerZeroComposer {
         address _poolAddressesProvider,
         address _vault,
         address _endpoint,
-        address _stargate
+        address _stargate,
+        address _owner
     ) {
         lendingPool = IPool(_lendingPool);
         asset = _asset;
@@ -40,6 +49,7 @@ contract AaveV3Fuse is ILayerZeroComposer {
         vault = _vault;
         endpoint = _endpoint;
         stargate = _stargate;
+        owner = _owner;
     }
 
     fallback() external payable {}
@@ -48,6 +58,15 @@ contract AaveV3Fuse is ILayerZeroComposer {
     modifier onlyVault() {
         require(msg.sender == vault, "Only vault can call this function");
         _;
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can call this function");
+        _;
+    }
+
+    function setProtocolInfo(string memory _protocolName, uint32 _dstEid, address _composer) external onlyOwner {
+        protocolToDstEidAndComposer[_protocolName] = protocolInfo(_dstEid, _composer);
     }
 
     function getLiquidityOf() external view returns (uint256) {
@@ -88,8 +107,9 @@ contract AaveV3Fuse is ILayerZeroComposer {
         }
     }
 
-    function withdrawCrossChain(uint256 amount, uint32 dstEid, address composer) external {
-        try lendingPool.withdraw(asset, amount, msg.sender) returns (uint256 withdrawnAmount) {
+    function withdrawCrossChain(uint256 amount, string memory _protocolName) external payable onlyOwner {
+        protocolInfo memory _protocolInfo = protocolToDstEidAndComposer[_protocolName];
+        try lendingPool.withdraw(asset, amount, address(this)) returns (uint256 withdrawnAmount) {
             require(withdrawnAmount == amount, "Withdrawn amount mismatch");
             console.log("aave withdraw called", amount);
         } catch Error(string memory reason) {
@@ -97,9 +117,12 @@ contract AaveV3Fuse is ILayerZeroComposer {
         } catch {
             revert("Withdraw failed");
         }
-        bytes memory _composeMsg = abi.encode("deposit", amount);
+        bytes memory _composeMsg = abi.encode(amount);
         (uint256 valueToSend, SendParam memory sendParam, MessagingFee memory messagingFee) =
-            prepareTakeTaxiAndSpokeCall(address(stargate), dstEid, amount, address(composer), _composeMsg);
+        prepareTakeTaxiAndSpokeCall(
+            address(stargate), _protocolInfo.dstEid, amount, _protocolInfo.composer, _composeMsg
+        );
+        IERC20(asset).approve(address(stargate), amount);
         IStargate(stargate).sendToken{value: valueToSend}(sendParam, messagingFee, msg.sender);
     }
 
@@ -110,17 +133,14 @@ contract AaveV3Fuse is ILayerZeroComposer {
         address _executor,
         bytes calldata _extraData
     ) external payable {
-        require(_from == stargate, "!stargate");
-        require(msg.sender == endpoint, "!endpoint");
+        // require(_from == stargate, "!stargate");
+        // require(msg.sender == endpoint, "!endpoint");
 
-        bytes memory _composeMessage = OFTComposeMsgCodec.composeMsg(_message);
-
-        (string memory _actionType, uint256 _amount) = abi.decode(_composeMessage, (string, uint256));
-
-        if (keccak256(abi.encodePacked(_actionType)) == keccak256(abi.encodePacked("deposit"))) {
-            IERC20(asset).approve(address(lendingPool), _amount);
-            lendingPool.supply(asset, _amount, msg.sender, 0);
-        }
+        uint256 amountLD = OFTComposeMsgCodec.amountLD(_message);
+        // bytes memory _composeMessage = OFTComposeMsgCodec.composeMsg(_message);
+        // (uint256 _amount) = abi.decode(_composeMessage, (uint256));
+        IERC20(asset).approve(address(lendingPool), amountLD);
+        lendingPool.supply(asset, amountLD, msg.sender, 0);
 
         emit ComposeAcknowledged(_from, _guid, _message, _executor, _extraData);
     }
@@ -131,7 +151,7 @@ contract AaveV3Fuse is ILayerZeroComposer {
         uint256 _amount,
         address _composer,
         bytes memory _composeMsg
-    ) internal view returns (uint256 valueToSend, SendParam memory sendParam, MessagingFee memory messagingFee) {
+    ) public view returns (uint256 valueToSend, SendParam memory sendParam, MessagingFee memory messagingFee) {
         bytes memory extraOptions = _composeMsg.length > 0 ? bytes("") : bytes("");
 
         sendParam = SendParam({

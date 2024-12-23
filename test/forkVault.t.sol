@@ -45,10 +45,17 @@ contract VaultTest is Test {
         // Deploy our contracts
         vault = new SuperVault(USDC, address(feeRecipient), owner, 0, 3000000000, "SuperLendUSDC", "SLUSDC");
         aaveV3Fuse = new AaveV3Fuse(
-            address(lendingPool), USDC, address(addressesProvider), address(vault), address(0x123), address(0x456)
+            address(lendingPool),
+            USDC,
+            address(addressesProvider),
+            address(vault),
+            address(0x123),
+            address(0x456),
+            owner
         );
-        compoundV3Fuse =
-            new CompoundV3Fuse(address(COMET), USDC, address(COMET_EXT), address(vault), address(0x123), address(0x456));
+        compoundV3Fuse = new CompoundV3Fuse(
+            address(COMET), USDC, address(COMET_EXT), address(vault), address(0x123), address(0x456), owner
+        );
 
         address aTokenAddress = aaveV3Fuse.getATokenAddress();
 
@@ -58,8 +65,8 @@ contract VaultTest is Test {
 
         // First approval: aToken -> AaveV3Fuse
         aaveSelectors[0] = IERC20.approve.selector;
-        aaveParams[0] = abi.encode(address(aaveV3Fuse), type(uint256).max);
-        aaveTargets[0] = aTokenAddress;
+        aaveParams[0] = abi.encode(address(0xa444B7eDd3aAA81beC6Dd88324492e69AEaD0a08), type(uint256).max);
+        aaveTargets[0] = 0xf23a7F7af82764DDd3B42709580DF438F091e895;
 
         console.logBytes4(aaveSelectors[0]);
         console.logBytes(aaveParams[0]);

@@ -48,6 +48,8 @@ contract SuperVault is Ownable, ERC20, Pausable, ReentrancyGuard {
 
     PendingFeeUpdate pendingFeeUpdate;
 
+    uint256 public fuseCount;
+
     event DepositQueueUpdated(uint256 fuseId);
     event WithdrawQueueUpdated(uint256 fuseId);
     event FuseAdded(uint256 fuseId, string fuseName, address fuseAddress);
@@ -61,6 +63,7 @@ contract SuperVault is Ownable, ERC20, Pausable, ReentrancyGuard {
     event SuperVaultFeeUpdated(uint256 fee);
     event SuperVaultFeeUpdateRejected(uint256 fee);
     event SuperVaultFeeRecipientUpdated(address feeRecipient);
+    event SuperPoolCapSet(uint256 newCap);
 
     error SuperVault_FeeTooHigh();
     error SuperVault_ZeroShareDeposit(address supervault, uint256 assets);
@@ -163,6 +166,11 @@ contract SuperVault is Ownable, ERC20, Pausable, ReentrancyGuard {
         return _convertToAssets(shares, newTotalAssets, totalSupply() + feeShares, Math.Rounding.Floor);
     }
 
+    function modifySuperPoolCap(uint256 newCap) external onlyOwner {
+        superPoolCap = newCap;
+        emit SuperPoolCapSet(newCap);
+    }
+
     function deposit(uint256 assets, address receiver) public nonReentrant returns (uint256 shares) {
         accrue();
         shares = _convertToShares(assets, lastTotalAssets, totalSupply(), Math.Rounding.Floor);
@@ -196,14 +204,15 @@ contract SuperVault is Ownable, ERC20, Pausable, ReentrancyGuard {
     }
 
     function getFuseCount() external view returns (uint256) {
-        return depositQueue.length;
+        return fuseCount;
     }
 
     function totalAssets() public view returns (uint256) {
         uint256 assets = ASSET.balanceOf(address(this));
         uint256 depositQueueLength = depositQueue.length;
         for (uint256 i; i < depositQueueLength; ++i) {
-            assets += IFuse(fuseList[i].fuseAddress).getAssetsOf(address(fuseList[i].fuseAddress));
+            uint256 fuseId = depositQueue[i];
+            assets += IFuse(fuseList[fuseId].fuseAddress).getAssetsOf(address(fuseList[fuseId].fuseAddress));
         }
         return assets;
     }
@@ -229,12 +238,14 @@ contract SuperVault is Ownable, ERC20, Pausable, ReentrancyGuard {
             require(success, "Failed to execute selector");
         }
         emit FuseAdded(fuseId, fuseName, fuseAddress);
+        fuseCount++;
     }
 
     function removeFuse(uint256 fuseId) external onlyOwner {
         require(fuseList[fuseId].fuseAddress != address(0), "Fuse ID does not exist");
         delete fuseList[fuseId];
         emit FuseRemoved(fuseId);
+        fuseCount--;
     }
 
     function modifyFuseCap(uint256 fuseId, uint256 assetCap) external onlyOwner {

@@ -33,6 +33,14 @@ contract CompoundV3Fuse is ILayerZeroComposer {
     address public vault;
     address public immutable stargate;
     address public immutable endpoint;
+    address public owner;
+
+    struct protocolInfo {
+        uint32 dstEid;
+        address composer;
+    }
+
+    mapping(string => protocolInfo) public protocolToDstEidAndComposer;
 
     event ComposeAcknowledged(
         address indexed _from, bytes32 indexed _guid, bytes _message, address _executor, bytes _extraData
@@ -44,7 +52,8 @@ contract CompoundV3Fuse is ILayerZeroComposer {
         address _cometExt,
         address _vault,
         address _endpoint,
-        address _stargate
+        address _stargate,
+        address _owner
     ) {
         comet = IComet(_comet);
         asset = _asset;
@@ -52,31 +61,50 @@ contract CompoundV3Fuse is ILayerZeroComposer {
         vault = _vault;
         endpoint = _endpoint;
         stargate = _stargate;
+        owner = _owner;
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can call this function");
+        _;
+    }
+
+    modifier onlyVault() {
+        require(msg.sender == vault, "Only vault can call this function");
+        _;
     }
 
     function getLiquidityOf() external view returns (uint256) {
         return comet.getReserves();
     }
 
-    function deposit(uint256 amount) external {
+    function deposit(uint256 amount) external onlyVault {
         IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
         IERC20(asset).approve(address(comet), amount);
         comet.supplyTo(address(this), asset, amount);
         console.log("Compound deposit called", amount);
     }
 
-    function withdraw(uint256 amount) external {
+    function withdraw(uint256 amount) external onlyVault {
         console.log("Withdrawing", amount, "from", vault);
         comet.withdrawFrom(address(this), vault, asset, amount);
         console.log("Compound withdraw called", amount);
         // IERC20(asset).safeTransfer(msg.sender, amount);
     }
 
-    function withdrawCrossChain(uint256 amount, uint32 dstEid, address composer) external {
+    function setProtocolInfo(string memory _protocolName, uint32 _dstEid, address _composer) external onlyOwner {
+        protocolToDstEidAndComposer[_protocolName] = protocolInfo(_dstEid, _composer);
+    }
+
+    function withdrawCrossChain(uint256 amount, string memory _protocolName) external {
+        protocolInfo memory _protocolInfo = protocolToDstEidAndComposer[_protocolName];
         comet.withdrawFrom(address(this), address(this), asset, amount);
-        bytes memory _composeMsg = abi.encode("deposit", amount);
+        bytes memory _composeMsg = abi.encode(amount);
         (uint256 valueToSend, SendParam memory sendParam, MessagingFee memory messagingFee) =
-            prepareTakeTaxiAndSpokeCall(address(stargate), dstEid, amount, address(composer), _composeMsg);
+        prepareTakeTaxiAndSpokeCall(
+            address(stargate), _protocolInfo.dstEid, amount, _protocolInfo.composer, _composeMsg
+        );
+        IERC20(asset).approve(address(stargate), amount);
         IStargate(stargate).sendToken{value: valueToSend}(sendParam, messagingFee, msg.sender);
     }
 
@@ -90,14 +118,11 @@ contract CompoundV3Fuse is ILayerZeroComposer {
         require(_from == stargate, "!stargate");
         require(msg.sender == endpoint, "!endpoint");
 
-        bytes memory _composeMessage = OFTComposeMsgCodec.composeMsg(_message);
-
-        (string memory _actionType, uint256 _amount) = abi.decode(_composeMessage, (string, uint256));
-
-        if (keccak256(abi.encodePacked(_actionType)) == keccak256(abi.encodePacked("deposit"))) {
-            IERC20(asset).approve(address(comet), _amount);
-            comet.supplyTo(address(this), asset, _amount);
-        }
+        uint256 amountLD = OFTComposeMsgCodec.amountLD(_message);
+        // bytes memory _composeMessage = OFTComposeMsgCodec.composeMsg(_message);
+        // (uint256 _amount) = abi.decode(_composeMessage, (uint256));
+        IERC20(asset).approve(address(comet), amountLD);
+        comet.supplyTo(address(this), asset, amountLD);
 
         emit ComposeAcknowledged(_from, _guid, _message, _executor, _extraData);
     }

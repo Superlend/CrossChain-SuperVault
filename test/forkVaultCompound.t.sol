@@ -39,8 +39,9 @@ contract VaultTest is Test {
         // Deploy our contracts
         vault = new SuperVault(USDC, address(feeRecipient), owner, 0, 1000000000, "SuperLendUSDC", "SLUSDC");
         // Add CompoundV3Fuse
-        compoundV3Fuse =
-            new CompoundV3Fuse(address(COMET), USDC, address(COMET_EXT), address(vault), address(0x123), address(0x456));
+        compoundV3Fuse = new CompoundV3Fuse(
+            address(COMET), USDC, address(COMET_EXT), address(vault), address(0x123), address(0x456), owner
+        );
 
         bytes4[] memory selectors = new bytes4[](1);
         bytes[] memory params = new bytes[](1);
