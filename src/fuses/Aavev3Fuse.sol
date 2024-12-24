@@ -12,6 +12,8 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IPool} from "@aave/contracts/interfaces/IPool.sol";
 import {DataTypes} from "@aave/contracts/protocol/libraries/types/DataTypes.sol";
 
+using OptionsBuilder for bytes;
+
 contract AaveV3Fuse is ILayerZeroComposer {
     using SafeERC20 for IERC20;
 
@@ -88,15 +90,6 @@ contract AaveV3Fuse is ILayerZeroComposer {
     }
 
     function withdraw(uint256 amount) external onlyVault {
-        // Get the aToken address
-        // DataTypes.ReserveData memory reserveData = lendingPool.getReserveData(asset);
-        // address aToken = reserveData.aTokenAddress;
-
-        // IERC20(aToken).approve(address(this), type(uint256).max);
-
-        // // pull the aToken from the vault
-        // IERC20(aToken).transferFrom(vault, address(this), amount);
-
         try lendingPool.withdraw(asset, amount, msg.sender) returns (uint256 withdrawnAmount) {
             require(withdrawnAmount == amount, "Withdrawn amount mismatch");
             console.log("aave withdraw called", amount);
@@ -119,9 +112,7 @@ contract AaveV3Fuse is ILayerZeroComposer {
         }
         bytes memory _composeMsg = abi.encode(amount);
         (uint256 valueToSend, SendParam memory sendParam, MessagingFee memory messagingFee) =
-        prepareTakeTaxiAndSpokeCall(
-            address(stargate), _protocolInfo.dstEid, amount, _protocolInfo.composer, _composeMsg
-        );
+            prepareTakeTaxi(address(stargate), _protocolInfo.dstEid, amount, _protocolInfo.composer, _composeMsg);
         IERC20(asset).approve(address(stargate), amount);
         IStargate(stargate).sendToken{value: valueToSend}(sendParam, messagingFee, msg.sender);
     }
@@ -137,22 +128,29 @@ contract AaveV3Fuse is ILayerZeroComposer {
         // require(msg.sender == endpoint, "!endpoint");
 
         uint256 amountLD = OFTComposeMsgCodec.amountLD(_message);
-        // bytes memory _composeMessage = OFTComposeMsgCodec.composeMsg(_message);
-        // (uint256 _amount) = abi.decode(_composeMessage, (uint256));
-        IERC20(asset).approve(address(lendingPool), amountLD);
-        lendingPool.supply(asset, amountLD, msg.sender, 0);
+        bytes memory _composeMessage = OFTComposeMsgCodec.composeMsg(_message);
+
+        (address _assetOnDestination, address _poolAddress) = abi.decode(_composeMessage, (address, address));
+
+        bool successApprove = IERC20(_assetOnDestination).approve(address(_poolAddress), amountLD);
+        if (!successApprove) {
+            revert("Approve failed");
+        }
+        IPool(_poolAddress).supply(_assetOnDestination, amountLD, address(this), 0);
 
         emit ComposeAcknowledged(_from, _guid, _message, _executor, _extraData);
     }
 
-    function prepareTakeTaxiAndSpokeCall(
+    function prepareTakeTaxi(
         address _stargate,
         uint32 _dstEid,
         uint256 _amount,
         address _composer,
         bytes memory _composeMsg
     ) public view returns (uint256 valueToSend, SendParam memory sendParam, MessagingFee memory messagingFee) {
-        bytes memory extraOptions = _composeMsg.length > 0 ? bytes("") : bytes("");
+        bytes memory extraOptions = _composeMsg.length > 0
+            ? OptionsBuilder.newOptions().addExecutorLzComposeOption(0, 200_000, 0) // compose gas limit
+            : bytes("");
 
         sendParam = SendParam({
             dstEid: _dstEid,

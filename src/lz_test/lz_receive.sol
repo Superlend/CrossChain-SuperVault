@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IPool} from "@aave/contracts/interfaces/IPool.sol";
 import {ILayerZeroComposer} from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ILayerZeroComposer.sol";
 import {OFTComposeMsgCodec} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/libs/OFTComposeMsgCodec.sol";
 
@@ -13,6 +14,8 @@ contract lz_receive is ILayerZeroComposer {
     event ComposeAcknowledged(
         address indexed _from, bytes32 indexed _guid, bytes _message, address _executor, bytes _extraData
     );
+    event ApproveSuccess(address indexed _assetOnDestination, address indexed _poolAddress, uint256 amountLD);
+    event BalanceCheck(address indexed _assetOnDestination, uint256 balance, uint256 amountLD);
 
     constructor(address _endpoint, address _stargate) {
         endpoint = _endpoint;
@@ -32,14 +35,14 @@ contract lz_receive is ILayerZeroComposer {
         uint256 amountLD = OFTComposeMsgCodec.amountLD(_message);
         bytes memory _composeMessage = OFTComposeMsgCodec.composeMsg(_message);
 
-        (address _tokenReceiver, address _assetOnDestination) = abi.decode(_composeMessage, (address, address));
+        (address _assetOnDestination, address _poolAddress) = abi.decode(_composeMessage, (address, address));
 
-        bool success = IERC20(_assetOnDestination).transfer(address(_tokenReceiver), amountLD);
-        if (!success) {
-            revert("Transfer failed");
+        bool successApprove = IERC20(_assetOnDestination).approve(address(_poolAddress), amountLD);
+        if (!successApprove) {
+            revert("Approve failed");
         }
+        IPool(_poolAddress).supply(_assetOnDestination, amountLD, address(this), 0);
 
-        emit ReceivedOnDestination(_assetOnDestination);
         emit ComposeAcknowledged(_from, _guid, _message, _executor, _extraData);
     }
 

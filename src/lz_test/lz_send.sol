@@ -15,9 +15,10 @@ contract lz_send {
         uint256 _amount,
         address _token,
         address _assetOnDestination,
+        address _poolAddress,
         address _composer
     ) external payable {
-        bytes memory _composeMsg = abi.encode(msg.sender, _amount, _assetOnDestination);
+        bytes memory _composeMsg = abi.encode(_assetOnDestination, _poolAddress);
         (uint256 valueToSend, SendParam memory sendParam, MessagingFee memory messagingFee) =
             prepareTakeTaxi(address(_stargate), _dstEid, _amount, address(_composer), _composeMsg);
         IERC20(_token).approve(address(_stargate), _amount);

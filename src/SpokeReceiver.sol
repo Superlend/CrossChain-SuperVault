@@ -6,8 +6,11 @@ import {ILayerZeroComposer} from "@layerzerolabs/lz-evm-protocol-v2/contracts/in
 import {OFTComposeMsgCodec} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/libs/OFTComposeMsgCodec.sol";
 import {MessagingFee, SendParam, OFTReceipt} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/interfaces/IOFT.sol";
 import {IStargate} from "@stargatefinance/stg-evm-v2/src/interfaces/IStargate.sol";
+import {OptionsBuilder} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/libs/OptionsBuilder.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IPool} from "@aave/contracts/interfaces/IPool.sol";
+
+using OptionsBuilder for bytes;
 
 contract SpokeReceiver is ILayerZeroComposer, Ownable(msg.sender) {
     address public immutable endpoint;
@@ -47,21 +50,22 @@ contract SpokeReceiver is ILayerZeroComposer, Ownable(msg.sender) {
             revert("Withdraw failed");
         }
         bytes memory _composeMsg = abi.encode("deposit", amount);
-        (uint256 valueToSend, SendParam memory sendParam, MessagingFee memory messagingFee) =
-        prepareTakeTaxiAndSpokeCall(
-            address(stargate), _protocolInfo.dstEid, amount, _protocolInfo.composer, _composeMsg
+        (uint256 valueToSend, SendParam memory sendParam, MessagingFee memory messagingFee) = prepareTakeTaxi(
+            address(stargate), _protocolInfo.dstEid, amount, address(_protocolInfo.composer), _composeMsg
         );
         IStargate(stargate).sendToken{value: valueToSend}(sendParam, messagingFee, msg.sender);
     }
 
-    function prepareTakeTaxiAndSpokeCall(
+    function prepareTakeTaxi(
         address _stargate,
         uint32 _dstEid,
         uint256 _amount,
         address _composer,
         bytes memory _composeMsg
-    ) internal view returns (uint256 valueToSend, SendParam memory sendParam, MessagingFee memory messagingFee) {
-        bytes memory extraOptions = _composeMsg.length > 0 ? bytes("") : bytes("");
+    ) public view returns (uint256 valueToSend, SendParam memory sendParam, MessagingFee memory messagingFee) {
+        bytes memory extraOptions = _composeMsg.length > 0
+            ? OptionsBuilder.newOptions().addExecutorLzComposeOption(0, 200_000, 0) // compose gas limit
+            : bytes("");
 
         sendParam = SendParam({
             dstEid: _dstEid,
@@ -99,10 +103,15 @@ contract SpokeReceiver is ILayerZeroComposer, Ownable(msg.sender) {
         // require(msg.sender == endpoint, "!endpoint");
 
         uint256 amountLD = OFTComposeMsgCodec.amountLD(_message);
-        // bytes memory _composeMessage = OFTComposeMsgCodec.composeMsg(_message);
-        // (uint256 _amount) = abi.decode(_composeMessage, (uint256));
-        IERC20(assetAddress).approve(address(poolAddress), amountLD);
-        IPool(poolAddress).supply(assetAddress, amountLD, address(this), 0);
+        bytes memory _composeMessage = OFTComposeMsgCodec.composeMsg(_message);
+
+        (address _assetOnDestination, address _poolAddress) = abi.decode(_composeMessage, (address, address));
+
+        bool successApprove = IERC20(_assetOnDestination).approve(address(_poolAddress), amountLD);
+        if (!successApprove) {
+            revert("Approve failed");
+        }
+        IPool(_poolAddress).supply(_assetOnDestination, amountLD, address(this), 0);
 
         emit ComposeAcknowledged(_from, _guid, _message, _executor, _extraData);
     }

@@ -16,9 +16,13 @@ contract ApproveScript is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
-        address lzSend = 0xD7De63Dd2fE384217e9c758E54d964696E182891;
+        address lzSend = 0x3eE0830C5183ca0997Eb32A11b58aB1b4797020d;
         address token = 0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773;
         address oft = 0x543BdA7c6cA4384FE90B1F5929bb851F52888983;
+
+        address assetOnDestination = 0x488327236B65C61A6c083e8d811a4E0D3d1D4268;
+        address poolAddress = 0x7dCEFCDe37fAC8A0551cdd5f63f4537A790d2c5b;
+        address composer = 0x1bDE06d63B684d2E049e573Ac55b363F2c9e37E1;
 
         // First approve lz_send to spend our tokens
         IERC20(token).approve(lzSend, type(uint256).max);
@@ -31,16 +35,11 @@ contract ApproveScript is Script {
         // vm.startBroadcast(deployerPrivateKey);
 
         // Transfer tokens to lz_send
-        IERC20(token).transfer(lzSend, 5000000);
+        IERC20(token).transfer(lzSend, 10 * 1e6);
 
         // Then call send
         lz_send(lzSend).send{value: 0.0001 ether}(
-            oft,
-            40232,
-            5000000,
-            token,
-            0x488327236B65C61A6c083e8d811a4E0D3d1D4268,
-            0x5aacA776b680F99ea6C0Af696b53923fe97864E3
+            oft, 40232, 10 * 1e6, token, assetOnDestination, poolAddress, composer
         );
 
         vm.stopBroadcast();
