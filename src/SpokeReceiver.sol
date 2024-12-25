@@ -40,19 +40,20 @@ contract SpokeReceiver is ILayerZeroComposer, Ownable(msg.sender) {
         protocolToDstEidAndComposer[_protocolName] = protocolInfo(_dstEid, _composer);
     }
 
-    function withdrawCrossChain(uint256 amount, string memory _protocolName) external onlyOwner {
+    function withdrawCrossChain(uint256 amount, string memory _protocolName) external payable onlyOwner {
         protocolInfo memory _protocolInfo = protocolToDstEidAndComposer[_protocolName];
-        try poolAddress.withdraw(assetAddress, amount, msg.sender) returns (uint256 withdrawnAmount) {
+        try poolAddress.withdraw(assetAddress, amount, address(this)) returns (uint256 withdrawnAmount) {
             require(withdrawnAmount == amount, "Withdrawn amount mismatch");
         } catch Error(string memory reason) {
             revert(reason);
         } catch {
             revert("Withdraw failed");
-        }
-        bytes memory _composeMsg = abi.encode("deposit", amount);
+        }   
+        bytes memory _composeMsg = abi.encode(amount);
         (uint256 valueToSend, SendParam memory sendParam, MessagingFee memory messagingFee) = prepareTakeTaxi(
             address(stargate), _protocolInfo.dstEid, amount, address(_protocolInfo.composer), _composeMsg
         );
+        IERC20(assetAddress).approve(stargate, amount);
         IStargate(stargate).sendToken{value: valueToSend}(sendParam, messagingFee, msg.sender);
     }
 
@@ -105,13 +106,13 @@ contract SpokeReceiver is ILayerZeroComposer, Ownable(msg.sender) {
         uint256 amountLD = OFTComposeMsgCodec.amountLD(_message);
         bytes memory _composeMessage = OFTComposeMsgCodec.composeMsg(_message);
 
-        (address _assetOnDestination, address _poolAddress) = abi.decode(_composeMessage, (address, address));
+        (uint256 _amount) = abi.decode(_composeMessage, (uint256));
 
-        bool successApprove = IERC20(_assetOnDestination).approve(address(_poolAddress), amountLD);
+        bool successApprove = IERC20(assetAddress).approve(address(poolAddress), amountLD);
         if (!successApprove) {
             revert("Approve failed");
         }
-        IPool(_poolAddress).supply(_assetOnDestination, amountLD, address(this), 0);
+        IPool(poolAddress).supply(assetAddress, amountLD, address(this), 0);
 
         emit ComposeAcknowledged(_from, _guid, _message, _executor, _extraData);
     }

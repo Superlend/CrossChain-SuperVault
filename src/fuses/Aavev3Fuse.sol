@@ -130,13 +130,13 @@ contract AaveV3Fuse is ILayerZeroComposer {
         uint256 amountLD = OFTComposeMsgCodec.amountLD(_message);
         bytes memory _composeMessage = OFTComposeMsgCodec.composeMsg(_message);
 
-        (address _assetOnDestination, address _poolAddress) = abi.decode(_composeMessage, (address, address));
+        (uint256 _amount) = abi.decode(_composeMessage, (uint256));
 
-        bool successApprove = IERC20(_assetOnDestination).approve(address(_poolAddress), amountLD);
+        bool successApprove = IERC20(asset).approve(address(lendingPool), amountLD);
         if (!successApprove) {
             revert("Approve failed");
         }
-        IPool(_poolAddress).supply(_assetOnDestination, amountLD, address(this), 0);
+        IPool(lendingPool).supply(asset, amountLD, address(this), 0);
 
         emit ComposeAcknowledged(_from, _guid, _message, _executor, _extraData);
     }

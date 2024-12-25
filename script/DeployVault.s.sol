@@ -32,7 +32,7 @@ contract DeployVault is Script {
         address endpoint = 0x6EDCE65403992e310A62460808c4b910D972f10f;
 
         SuperVault vault = new SuperVault(
-            USDC_Arbitrum_testnet, address(feeRecipient), owner, 0, 30000 * 1e6, "SuperLendUSDC", "SLUSDC"
+            USDC_Arbitrum_testnet, address(feeRecipient), owner, 0, 100000 * 1e6, "SuperLendUSDC", "SLUSDC"
         );
         AaveV3Fuse aaveV3Fuse_arbitrum_testnet = new AaveV3Fuse(
             address(lendingPool_arbitrum_testnet),
