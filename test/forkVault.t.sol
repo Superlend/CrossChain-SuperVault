@@ -3,18 +3,18 @@ pragma solidity ^0.8.13;
 
 import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
-import {SuperVault} from "../src/Vault.sol";
-import {AaveV3Fuse} from "../src/fuses/AaveV3Fuse.sol";
-import {CompoundV3Fuse} from "../src/fuses/CompoundV3Fuse.sol";
+import {SuperVault} from "../src/SuperVault.sol";
+import {AaveV3Wrapper} from "../src/fuses/AaveV3Wrapper.sol";
+import {CompoundV3Wrapper} from "../src/fuses/CompoundV3Wrapper.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IComet} from "../src/fuses/CompoundV3Fuse.sol";
+import {IComet} from "../src/fuses/CompoundV3Wrapper.sol";
 import {IPool} from "@aave/contracts/interfaces/IPool.sol";
 import {IPoolAddressesProvider} from "@aave/contracts/interfaces/IPoolAddressesProvider.sol";
 
 contract VaultTest is Test {
     SuperVault public vault;
-    AaveV3Fuse public aaveV3Fuse;
-    CompoundV3Fuse public compoundV3Fuse;
+    AaveV3Wrapper public aaveV3Fuse;
+    CompoundV3Wrapper public compoundV3Fuse;
     address public owner = makeAddr("owner");
     address public user1 = makeAddr("user1");
     address public feeRecipient = makeAddr("feeRecipient");
@@ -44,7 +44,7 @@ contract VaultTest is Test {
 
         // Deploy our contracts
         vault = new SuperVault(USDC, address(feeRecipient), owner, 0, 3000000000, "SuperLendUSDC", "SLUSDC");
-        aaveV3Fuse = new AaveV3Fuse(
+        aaveV3Fuse = new AaveV3Wrapper(
             address(lendingPool),
             USDC,
             address(addressesProvider),
@@ -53,7 +53,7 @@ contract VaultTest is Test {
             address(0x456),
             owner
         );
-        compoundV3Fuse = new CompoundV3Fuse(
+        compoundV3Fuse = new CompoundV3Wrapper(
             address(COMET), USDC, address(COMET_EXT), address(vault), address(0x123), address(0x456), owner
         );
 
@@ -65,8 +65,8 @@ contract VaultTest is Test {
 
         // First approval: aToken -> AaveV3Fuse
         aaveSelectors[0] = IERC20.approve.selector;
-        aaveParams[0] = abi.encode(address(0xa444B7eDd3aAA81beC6Dd88324492e69AEaD0a08), type(uint256).max);
-        aaveTargets[0] = 0xf23a7F7af82764DDd3B42709580DF438F091e895;
+        aaveParams[0] = abi.encode(address(aaveV3Fuse), type(uint256).max);
+        aaveTargets[0] = aTokenAddress;
 
         console.logBytes4(aaveSelectors[0]);
         console.logBytes(aaveParams[0]);
@@ -152,13 +152,13 @@ contract VaultTest is Test {
 
         // rebalance
         // vault owner calls reallocate
-        // vm.startPrank(owner);
-        // SuperVault.ReallocateParams[] memory fromParams = new SuperVault.ReallocateParams[](1);
-        // fromParams[0] = SuperVault.ReallocateParams({fuseId: 0, assets: 100000000});
-        // SuperVault.ReallocateParams[] memory toParams = new SuperVault.ReallocateParams[](1);
-        // toParams[0] = SuperVault.ReallocateParams({fuseId: 1, assets: 100000000});
-        // vault.reallocate(fromParams, toParams);
-        // vm.stopPrank();
+        vm.startPrank(owner);
+        SuperVault.ReallocateParams[] memory fromParams = new SuperVault.ReallocateParams[](1);
+        fromParams[0] = SuperVault.ReallocateParams({fuseId: 0, assets: 100000000});
+        SuperVault.ReallocateParams[] memory toParams = new SuperVault.ReallocateParams[](1);
+        toParams[0] = SuperVault.ReallocateParams({fuseId: 1, assets: 100000000});
+        vault.reallocate(fromParams, toParams);
+        vm.stopPrank();
 
         uint256 shares = vault.previewWithdraw(1200 * 10 ** 6);
         console.log("shares", shares);

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {SpokeReceiver} from "../src/SpokeReceiver.sol";
+import {AaveV3Spoke} from "../src/AaveV3Spoke.sol";
 import {console} from "forge-std/console.sol";
 import {Script} from "forge-std/Script.sol";
 
@@ -18,7 +18,7 @@ contract DeploySpokeReceiver is Script {
         address assetAddress = 0x488327236B65C61A6c083e8d811a4E0D3d1D4268;
         address poolAddress = 0x7dCEFCDe37fAC8A0551cdd5f63f4537A790d2c5b;
 
-        SpokeReceiver spokeReceiver = new SpokeReceiver(endpoint_optimism, stargate_optimism, assetAddress, poolAddress);
+        AaveV3Spoke spokeReceiver = new AaveV3Spoke(endpoint_optimism, stargate_optimism, assetAddress, poolAddress);
 
         console.log("SpokeReceiver deployed at:", address(spokeReceiver));
 

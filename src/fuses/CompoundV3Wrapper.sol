@@ -24,7 +24,9 @@ interface IComet {
     function getReserves() external view returns (uint256);
 }
 
-contract CompoundV3Fuse is ILayerZeroComposer {
+using OptionsBuilder for bytes;
+
+contract CompoundV3Wrapper is ILayerZeroComposer {
     using SafeERC20 for IERC20;
 
     IComet public comet;
@@ -101,9 +103,7 @@ contract CompoundV3Fuse is ILayerZeroComposer {
         comet.withdrawFrom(address(this), address(this), asset, amount);
         bytes memory _composeMsg = abi.encode(amount);
         (uint256 valueToSend, SendParam memory sendParam, MessagingFee memory messagingFee) =
-        prepareTakeTaxiAndSpokeCall(
-            address(stargate), _protocolInfo.dstEid, amount, _protocolInfo.composer, _composeMsg
-        );
+            prepareTakeTaxi(address(stargate), _protocolInfo.dstEid, amount, _protocolInfo.composer, _composeMsg);
         IERC20(asset).approve(address(stargate), amount);
         IStargate(stargate).sendToken{value: valueToSend}(sendParam, messagingFee, msg.sender);
     }
@@ -127,14 +127,16 @@ contract CompoundV3Fuse is ILayerZeroComposer {
         emit ComposeAcknowledged(_from, _guid, _message, _executor, _extraData);
     }
 
-    function prepareTakeTaxiAndSpokeCall(
+    function prepareTakeTaxi(
         address _stargate,
         uint32 _dstEid,
         uint256 _amount,
         address _composer,
         bytes memory _composeMsg
-    ) internal view returns (uint256 valueToSend, SendParam memory sendParam, MessagingFee memory messagingFee) {
-        bytes memory extraOptions = _composeMsg.length > 0 ? bytes("") : bytes("");
+    ) public view returns (uint256 valueToSend, SendParam memory sendParam, MessagingFee memory messagingFee) {
+        bytes memory extraOptions = _composeMsg.length > 0
+            ? OptionsBuilder.newOptions().addExecutorLzComposeOption(0, 200_000, 0) // compose gas limit
+            : bytes("");
 
         sendParam = SendParam({
             dstEid: _dstEid,

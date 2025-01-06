@@ -12,7 +12,7 @@ import {IPool} from "@aave/contracts/interfaces/IPool.sol";
 
 using OptionsBuilder for bytes;
 
-contract SpokeReceiver is ILayerZeroComposer, Ownable(msg.sender) {
+contract AaveV3Spoke is ILayerZeroComposer, Ownable(msg.sender) {
     address public immutable endpoint;
     address public immutable stargate;
     address public immutable assetAddress;
@@ -48,7 +48,7 @@ contract SpokeReceiver is ILayerZeroComposer, Ownable(msg.sender) {
             revert(reason);
         } catch {
             revert("Withdraw failed");
-        }   
+        }
         bytes memory _composeMsg = abi.encode(amount);
         (uint256 valueToSend, SendParam memory sendParam, MessagingFee memory messagingFee) = prepareTakeTaxi(
             address(stargate), _protocolInfo.dstEid, amount, address(_protocolInfo.composer), _composeMsg
@@ -100,8 +100,8 @@ contract SpokeReceiver is ILayerZeroComposer, Ownable(msg.sender) {
         address _executor,
         bytes calldata _extraData
     ) external payable {
-        // require(_from == stargate, "!stargate");
-        // require(msg.sender == endpoint, "!endpoint");
+        require(_from == stargate, "!stargate");
+        require(msg.sender == endpoint, "!endpoint");
 
         uint256 amountLD = OFTComposeMsgCodec.amountLD(_message);
         bytes memory _composeMessage = OFTComposeMsgCodec.composeMsg(_message);
