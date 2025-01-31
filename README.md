@@ -11,7 +11,12 @@ Foundry consists of:
 
 ## Documentation
 
-https://book.getfoundry.sh/
+-   **SuperVault.sol**: Main contract handling the vault logic and interaction with underlying wrapper/fuse contracts.
+-   **AaveV3Wrapper.sol**: Wrapper contract for interacting with the Aave V3 protocol.
+-   **CompoundV3Wrapper.sol**: Wrapper contract for interacting with the Compound V3 protocol.
+-   **AaveV3Spoke.sol**: Spoke contract for interacting with the Aave V3 protocol on destination chains.
+
+-   **Architecture**: https://excalidraw.com/#json=A9x44P-yUQKIu4Bldloho,oQLMmGKjLOUutTl6N4Pifg
 
 ## Usage
 
