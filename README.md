@@ -1,13 +1,6 @@
-## Foundry
+## CrossChain-SuperVault
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
-
-Foundry consists of:
-
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+This is a cross-chain vault that allows users to deposit assets into the vault and vault mints share tokens, while in the backgrounf according to the strategies added in DepositQueue the funds are deposited in those protocols. After that whenever rebalancing happens the funds are withdrawn and sent to the destination chain spoke contracts and deposited in underlying protocols.
 
 ## Documentation
 
